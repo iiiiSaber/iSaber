@@ -9,6 +9,7 @@ import ArticleMetadata from "./article-metadata";
 import LabelManager from "./label-manager";
 import CommentModeration from "./comment-moderation";
 import FriendManager from "./friend-manager";
+import PinnedArticles from "./pinned-articles";
 import { AdminBadge, AdminIcon, AdminNote, AdminTable, adminDate } from "./admin-ui";
 import { useAdminConfirmation } from "./admin-confirmation";
 import { articleOutline } from "../../lib/article-outline";
@@ -41,7 +42,7 @@ const messages: Record<string, string> = {
   idempotency_conflict: "This request key belongs to a different operation. Reload before starting again.",
 };
 
-type View = "articles" | "import" | "editor" | "labels" | "comments" | "friends";
+type View = "articles" | "import" | "editor" | "labels" | "comments" | "friends" | "pins";
 export default function PublishingDashboard({ csrf, onExpired, username, signingOut, onSignOut, sessionMessage }: {
   csrf: string; onExpired: () => void; username: string; signingOut: boolean; onSignOut: () => Promise<void>; sessionMessage: string;
 }) {
@@ -50,6 +51,7 @@ export default function PublishingDashboard({ csrf, onExpired, username, signing
   const [editorTab, setEditorTab] = useState<"metadata" | "preview" | "history">("metadata");
   const [dirty, setDirty] = useState(false);
   const [friendsDirty, setFriendsDirty] = useState(false);
+  const [pinsDirty, setPinsDirty] = useState(false);
   const [ready, setReady] = useState(false);
   const [listError, setListError] = useState("");
   const [filterFields, setFilterFields] = useState({ q: "", status: "", visibility: "" });
@@ -58,11 +60,11 @@ export default function PublishingDashboard({ csrf, onExpired, username, signing
   const fileInput = useRef<HTMLInputElement>(null);
   useEffect(() => { setReady(true); }, []);
   useEffect(() => {
-    if (!dirty && !friendsDirty) return;
+    if (!dirty && !friendsDirty && !pinsDirty) return;
     const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ""; };
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
-  }, [dirty, friendsDirty]);
+  }, [dirty, friendsDirty, pinsDirty]);
   const [collection, setCollection] = useState<NumberedPage<ArticleSummary> | null>(null);
   const [pageNumber, setPageNumber] = useState(1);
   const [pageSize, setPageSize] = useState(20);
@@ -272,13 +274,15 @@ export default function PublishingDashboard({ csrf, onExpired, username, signing
   }
 
   async function discardChanges() {
+    if (pinsDirty && !await confirmAction("Discard your unsaved pinned-article order?", { title: "Leave unsaved changes?", action: "Discard changes", danger: true })) return false;
     if (friendsDirty && !await confirmAction("You have unsaved friend-link edits. Continue without saving them?", { title: "Leave unsaved changes?", action: "Continue", danger: true })) return false;
     if (!dirty) return true;
     if (!await confirmAction("The current metadata changes have not been saved. Discard them and continue?", { title: "Leave unsaved changes?", action: "Discard changes", danger: true })) return false;
     metadataForm.current?.reset(); setDirty(false); return true;
   }
   async function navigate(nextView: View) {
-    if (locked || (view === "editor" && nextView !== "editor" && !await discardChanges())) return;
+    if (locked || ((view === "editor" || view === "pins") && nextView !== view && !await discardChanges())) return;
+    if (view === "pins" && nextView !== "pins") setPinsDirty(false);
     setView(nextView); setMessage("");
     requestAnimationFrame(() => { workspace.current?.focus(); window.scrollTo({ top: 0, behavior: "instant" }); });
   }
@@ -309,12 +313,12 @@ export default function PublishingDashboard({ csrf, onExpired, username, signing
     requestAnimationFrame(() => document.getElementById("admin-preview-content")?.focus());
   }
   const canPublish = !!article?.draft && article.publishable && preview?.id === article.draft.id && !dirty;
-  const viewName = { articles: "Articles", import: "Import article", editor: "Article details", labels: "Categories & tags", comments: "Comments", friends: "Friends" }[view];
+  const viewName = { articles: "Articles", import: "Import article", editor: "Article details", labels: "Categories & tags", comments: "Comments", friends: "Friends", pins: "Pinned articles" }[view];
   return <div className="shell">
     <aside className="sidebar" aria-label="Workspace sidebar">
       <a className="brand" href="/" target="_blank" rel="noreferrer"><span className="brand-mark" aria-hidden="true">iS</span><span>iSaber<small>Content workspace</small></span></a>
       <p className="nav-heading">MANAGE</p>
-      <nav aria-label="Workspace">{([ ["articles", "Articles"], ["import", "Import article"], ["labels", "Categories & tags"], ["comments", "Comments"], ["friends", "Friends"] ] as const).map(([key, name]) => <button key={key} type="button" disabled={locked} aria-current={view === key || (key === "articles" && view === "editor") ? "page" : undefined} onClick={() => { if (key === "import") setUploadTarget("new"); void navigate(key); }}><AdminIcon name={key} /><span>{name}</span></button>)}</nav>
+      <nav aria-label="Workspace">{([ ["articles", "Articles"], ["import", "Import article"], ["labels", "Categories & tags"], ["comments", "Comments"], ["friends", "Friends"] ] as const).map(([key, name]) => <button key={key} type="button" disabled={locked} aria-current={view === key || (key === "articles" && (view === "editor" || view === "pins")) ? "page" : undefined} onClick={() => { if (key === "import") setUploadTarget("new"); void navigate(key); }}><AdminIcon name={key} /><span>{name}</span></button>)}</nav>
       <div className="sidebar-foot"><span className="avatar" aria-hidden="true">{username.slice(0, 1).toUpperCase()}</span><div><strong>{username}</strong><small>Owner workspace</small></div></div>
     </aside>
     <div className="workspace">
@@ -324,7 +328,7 @@ export default function PublishingDashboard({ csrf, onExpired, username, signing
         {sessionMessage && <p className="admin-alert" role="alert">{sessionMessage}</p>}
         <div className="admin-message" role="status">{message}</div>
         <div hidden={view !== "articles"}>
-          <div className="page-heading"><div><h1>Articles</h1><p>Manage drafts, published writing, and article visibility.</p></div><button className="button primary" type="button" disabled={locked} onClick={() => { setUploadTarget("new"); void navigate("import"); }}><AdminIcon name="import" />Import article</button></div>
+          <div className="page-heading"><div><h1>Articles</h1><p>Manage drafts, published writing, and article visibility.</p></div><div className="actions"><button className="button" type="button" disabled={locked} onClick={() => void navigate("pins")}><PinBadge label="Pinned articles" /></button><button className="button primary" type="button" disabled={locked} onClick={() => { setUploadTarget("new"); void navigate("import"); }}><AdminIcon name="import" />Import article</button></div></div>
           <section className="card" aria-label="Article collection">
             <fieldset className="list-tabs" aria-label="Article status">{([ ["", "All articles"], ["published", "Published"], ["draft", "Drafts"] ] as const).map(([value, label]) => <button type="button" key={value} disabled={locked} aria-pressed={filter.status === value} onClick={() => { const applied = { ...filter, status: value }; applyFilters(applied); setFilterFields(applied); }}>{label}</button>)}</fieldset>
             <form className="toolbar" onSubmit={event => { event.preventDefault(); applyFilters({ ...filterFields }); }}>
@@ -386,11 +390,12 @@ export default function PublishingDashboard({ csrf, onExpired, username, signing
             }} /></div>
           </section><AdminNote><strong>Content is written in Typora.</strong> Import Markdown or ZIP to update the body. Saving metadata does not publish it.</AdminNote></div>
           <aside className="editor-side" aria-label="Publication controls"><section className="card"><div className="card-head"><h2>Publication</h2><AdminBadge tone={article.status === "published" ? "green" : "amber"}>{article.status === "published" ? "Published" : "Draft"}</AdminBadge></div><div className="card-body"><p className="help admin-publication-summary">{article.published ? article.draft ? "The published article has an unpublished draft." : "The published version is up to date." : "This article has not been published."}</p><button className="button" type="button" disabled={locked || !article.draft || dirty} onClick={() => run(reviewDraft)}>Review draft preview</button><button className="button primary" type="button" disabled={locked || !canPublish} onClick={() => publication("publish")}>{article.status === "published" ? "Publish changes" : "Publish draft"}</button><p className="help">{dirty ? "Save metadata before reviewing the preview." : !article.draft ? "Import a draft revision to make changes." : !article.publishable ? "Resolve the required fields and import issues before publishing." : canPublish ? `Draft reviewed. Publication visibility: ${article.visibility}.` : "Review the saved draft preview to enable publication."}</p>{article.published && <><button type="button" className="row-action" disabled={locked} onClick={() => { setPreview(article.published); setEditorTab("preview"); }}>Read current version</button><button className="row-action admin-danger-link" type="button" disabled={locked} onClick={() => publication("unpublish")}>Unpublish article</button></>}</div></section>
-            <section className="card"><div className="card-head"><h2>Article settings</h2></div><div className="card-body"><div className="setting-row"><div><label htmlFor="article-visibility">Visibility</label><p className="help">{article.visibility === "private" ? "Only the owner can read this article." : "Public readers can read the published version."}</p></div><select id="article-visibility" aria-label="Article visibility" value={article.visibility} disabled={locked} onChange={event => controls(event.target.value as "public" | "private")}><option value="private">Private</option><option value="public">Public</option></select></div><p className="help">Visibility takes effect immediately and does not publish a draft.</p><div className="setting-row"><label className="switch-check"><input type="checkbox" checked={article.pinned ?? false} disabled={locked || !article.published} onChange={togglePin} aria-describedby="article-pin-help" />Pin globally</label></div><p className="help" id="article-pin-help">{!article.published ? "Publish this article to enable pinning." : article.visibility === "private" ? "Appears first on your Home and Archive. Only you can see this private pin." : "Appears first on Home and Archive. Search keeps its selected order."} Unpublishing removes the pin.</p><div className="setting-row"><label className="switch-check"><input type="checkbox" checked={article.category_pinned ?? false} disabled={locked || !article.published?.category} onChange={toggleCategoryPin} aria-describedby="category-pin-help" />Pin in {article.published?.category?.name ?? "category"}</label></div><p className="help" id="category-pin-help">{!article.published?.category ? "Publish with a category to enable this pin." : "Appears first only on this category page. Global pinning is separate; search keeps its selected order. Private articles remain visible only to you."} Changing the published category or unpublishing removes this pin.</p><div className="setting-row"><label className="switch-check"><input type="checkbox" checked={article.comments_enabled} disabled={locked} onChange={toggleComments} />Allow new comments</label></div>{article.published && <a className="row-action" href={`/articles/${article.slug}`} target="_blank" rel="noreferrer">Read {article.visibility === "private" ? "private" : "published"} article ↗</a>}</div></section>
+            <section className="card"><div className="card-head"><h2>Article settings</h2></div><div className="card-body"><div className="setting-row"><div><label htmlFor="article-visibility">Visibility</label><p className="help">{article.visibility === "private" ? "Only the owner can read this article." : "Public readers can read the published version."}</p></div><select id="article-visibility" aria-label="Article visibility" value={article.visibility} disabled={locked} onChange={event => controls(event.target.value as "public" | "private")}><option value="private">Private</option><option value="public">Public</option></select></div><p className="help">Visibility takes effect immediately and does not publish a draft.</p><div className="setting-row"><label className="switch-check"><input type="checkbox" checked={article.pinned ?? false} disabled={locked || !article.published} onChange={togglePin} aria-describedby="article-pin-help" />Pin globally</label></div><p className="help" id="article-pin-help">{!article.published ? "Publish this article to enable pinning." : article.visibility === "private" ? "Appears in your saved pin order on Home and Archive. Only you can see this private pin." : "Appears in your saved pin order on Home and Archive. Search keeps its selected order."} Unpublishing removes the pin.</p><div className="setting-row"><label className="switch-check"><input type="checkbox" checked={article.category_pinned ?? false} disabled={locked || !article.published?.category} onChange={toggleCategoryPin} aria-describedby="category-pin-help" />Pin in {article.published?.category?.name ?? "category"}</label></div><p className="help" id="category-pin-help">{!article.published?.category ? "Publish with a category to enable this pin." : "Appears first only on this category page. Global pinning is separate; search keeps its selected order. Private articles remain visible only to you."} Changing the published category or unpublishing removes this pin.</p><div className="setting-row"><label className="switch-check"><input type="checkbox" checked={article.comments_enabled} disabled={locked} onChange={toggleComments} />Allow new comments</label></div>{article.published && <a className="row-action" href={`/articles/${article.slug}`} target="_blank" rel="noreferrer">Read {article.visibility === "private" ? "private" : "published"} article ↗</a>}</div></section>
 
           </aside></div>
         </div>}
         <div hidden={view !== "labels"}><div className="page-heading"><div><h1>Categories & tags</h1><p>Organize all your writing in one collection.</p></div></div><LabelManager labels={labels} busy={locked} request={request} run={run} onChanged={labelsChanged} refresh={loadLabels} /></div>
+        {view === "pins" && <><div className="page-heading"><div><button className="back" type="button" disabled={locked} onClick={() => void navigate("articles")}>← Back to articles</button><h1>Pinned articles</h1><p>Choose a fixed order for your globally pinned writing.</p></div></div><PinnedArticles busy={locked} request={request} run={run} onDirty={setPinsDirty} /></>}
         <div hidden={view !== "friends"}><div className="page-heading"><div><h1>Friends</h1><p>Review link requests and curate your directory.</p></div></div><FriendManager active={view === "friends"} busy={locked} request={request} run={run} onDirty={setFriendsDirty} /></div>
         <div hidden={view !== "comments"}><div className="page-heading"><div><h1>Comments</h1><p>Review reader submissions before they become public.</p></div></div><CommentModeration article={article} busy={locked} active={view === "comments"} request={request} run={run} onOpenArticle={openArticle} /></div>
       </section>

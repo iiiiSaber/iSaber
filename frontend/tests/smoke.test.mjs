@@ -54,7 +54,8 @@ test("production frontend handles unavailable and older backend capabilities", a
     } else if ((url.pathname === "/api/v1/articles" || url.pathname === "/api/v1/articles/search") && listMode !== "unavailable") {
       response.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-store" });
       const source = listMode === "empty" ? [] : listMode === "paginated" ? manyArticles : listMode === "pinned" ? (url.pathname.endsWith("/search") ? [sampleArticles[0], { ...sampleArticles[1], pinned: true }] : [{ ...sampleArticles[1], pinned: true }, sampleArticles[0]]) : sampleArticles;
-      const items = url.searchParams.get("sort") === "oldest" ? [...source].reverse() : source;
+      const orderedPins = [{ ...sampleArticles[2], pinned: true }, { ...sampleArticles[0], pinned: true }, { ...sampleArticles[1], pinned: true }, sampleArticles[3]];
+      const items = listMode === "manual-pins" ? orderedPins : url.searchParams.get("sort") === "oldest" ? [...source].reverse() : source;
       if (url.searchParams.has("page")) {
         const pageSize = Number(url.searchParams.get("limit") ?? "20"), totalPages = Math.max(1, Math.ceil(items.length / pageSize));
         const page = Math.min(Number(url.searchParams.get("page")), totalPages);
@@ -163,6 +164,16 @@ test("production frontend handles unavailable and older backend capabilities", a
       const first = html.indexOf(path.includes("?q=") ? "Public article 0" : "中文标题与阅读");
       const second = html.indexOf(path.includes("?q=") ? "中文标题与阅读" : "Public article 0");
       assert.ok(first >= 0 && second > first, `Server order changed on ${path}`);
+    }
+    listMode = "populated";
+  });
+  await t.test("Home and Archive retain the API's manual pin order under every date sort", async () => {
+    listMode = "manual-pins";
+    for (const path of ["/", ...["written", "written_oldest", "updated", "updated_oldest", "newest", "oldest"].map(sort => `/archive?sort=${sort}`)]) {
+      const html = await (await fetch(`${origin}${path}`)).text();
+      const positions = [sampleArticles[2], sampleArticles[0], sampleArticles[1], sampleArticles[3]].map(article => html.indexOf(article.title));
+      assert.ok(positions.every(position => position >= 0));
+      assert.deepEqual(positions, [...positions].sort((a, b) => a - b), path);
     }
     listMode = "populated";
   });
@@ -293,11 +304,13 @@ test("production frontend handles unavailable and older backend capabilities", a
       assert.match(ownerHTML, /class="private-writing-label"/);
       assert.match(ownerHTML, /class="pinned-writing-label"/);
       assert.match(ownerHTML, /noindex/);
+      assert.equal((ownerHTML.match(/<a\b[^>]*href="\/admin"[^>]*>Admin<\/a>/g) ?? []).length, 2, "Owner navigation includes Admin in desktop and mobile menus");
       assert.doesNotMatch(ownerHTML, /isaber_dev_session=reader-fixture|private-csrf-fixture/);
       assert.match(owned.headers.get("cache-control") ?? "", /private/);
       assert.match(owned.headers.get("cache-control") ?? "", /no-store/);
       const guestHTML = await (await fetch(`${origin}${path}`)).text();
       assert.doesNotMatch(guestHTML, /Private fixture title|Private fixture summary|Private category fixture|owner-only-body-marker/);
+      assert.doesNotMatch(guestHTML, /<a\b[^>]*href="\/admin"[^>]*>Admin<\/a>/);
     }
     const protectedRequests = publicRequests.filter(request => request.path.startsWith("/api/v1/admin/reading"));
     assert.ok(protectedRequests.length > 0);
@@ -325,6 +338,7 @@ test("production frontend handles unavailable and older backend capabilities", a
     try {
       const html = await (await fetch(origin, { headers: { Cookie: readerCookie } })).text();
       assert.doesNotMatch(html, /Private fixture title|Private fixture summary|owner-only-body-marker/);
+      assert.doesNotMatch(html, /<a\b[^>]*href="\/admin"[^>]*>Admin<\/a>/);
       assert.equal((await fetch(`${origin}/articles/private-fixture`, { headers: { Cookie: readerCookie } })).status, 404);
     } finally { readerAuthenticated = true; }
   });

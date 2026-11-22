@@ -75,10 +75,9 @@ export default function ArticleComments({ articleId, enabled, initialPage, unava
     setUncertain(false); setMessage("Retry state cleared. Your text is kept for editing as a new comment.");
   }
   return <section className="article-comments" aria-labelledby="comments-title">
-    <h2 id="comments-title">Comments</h2>
+    <div className="article-comments-heading"><h2 id="comments-title">Comments</h2>{active && <button type="button" disabled={busy || !ready} onClick={() => load()}>Refresh comments</button>}</div>
     {message && <p role="status">{message}</p>}
     {active && <>
-      <button type="button" disabled={busy || !ready} onClick={() => load()}>Refresh comments</button>
       {page && (page.items.length === 0 ? <p>No approved comments yet.</p> : <ol>{page.items.map((comment) => <li key={comment.id}>
         <p><strong>{comment.display_name}</strong> · <time dateTime={comment.created_at}>{new Date(comment.created_at).toLocaleString("en", { timeZone: "Asia/Shanghai" })}</time></p>
         <p className="comment-body">{comment.body}</p>

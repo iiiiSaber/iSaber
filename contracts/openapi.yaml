@@ -133,7 +133,7 @@ paths:
       - $ref: '#/components/parameters/language'
       - $ref: '#/components/parameters/category'
       - $ref: '#/components/parameters/tag'
-      description: Pinned articles come first within the matching public collection. Cursor mode then orders each group by newest first publication time and ID. Numbered mode defaults to newest writing date within each group and supports the sort parameter. Never returns drafts, private articles, or their metadata.
+      description: Globally pinned articles come first in saved manual order within the matching public collection. Cursor mode then orders unpinned articles by newest first publication time and ID. Numbered mode defaults to newest writing date for unpinned articles and supports the sort parameter. Date sorting never reorders global pins. Never returns drafts, private articles, or their metadata.
   /articles/search:
     get:
       operationId: searchPublicArticles
@@ -568,7 +568,7 @@ paths:
       - $ref: '#/components/parameters/category'
       - $ref: '#/components/parameters/tag'
       description: Requires a valid owner session. Includes current published public and private writing; excludes drafts and
-        historical revisions. Browse/search filters and sort semantics match the public API. Every item includes visibility and pinned; both public and private pins come first within the owner-visible collection.
+        historical revisions. Browse/search filters and sort semantics match the public API. Every item includes visibility and pinned; both public and private pins come first in saved manual order within the owner-visible collection.
         Cursor scope is distinct from the public API.
   /admin/reading/articles/search:
     get:
@@ -606,7 +606,7 @@ paths:
       - $ref: '#/components/parameters/category'
       - $ref: '#/components/parameters/tag'
       description: Requires a valid owner session. Includes current published public and private writing; excludes drafts and
-        historical revisions. Browse/search filters and sort semantics match the public API. Every item includes visibility and pinned; both public and private pins come first within the owner-visible collection.
+        historical revisions. Browse/search filters and sort semantics match the public API. Every item includes visibility and pinned; both public and private pins come first in saved manual order within the owner-visible collection.
         Cursor scope is distinct from the public API.
   /admin/reading/articles/{slug}:
     get:
@@ -637,7 +637,7 @@ paths:
       parameters:
       - $ref: '#/components/parameters/slug'
       description: Requires a valid owner session. Includes current published public and private writing; excludes drafts and
-        historical revisions. Browse/search filters and sort semantics match the public API. Every item includes visibility and pinned; both public and private pins come first within the owner-visible collection.
+        historical revisions. Browse/search filters and sort semantics match the public API. Every item includes visibility and pinned; both public and private pins come first in saved manual order within the owner-visible collection.
         Cursor scope is distinct from the public API.
   /admin/reading/categories:
     get:
@@ -1442,6 +1442,59 @@ paths:
               $ref: '#/components/schemas/UpdateFriend'
       description: Requires the current version. Publication is a separate explicit
         owner action. Hiding retains the entry.
+  /admin/pins:
+    get:
+      operationId: listGlobalPins
+      summary: List all globally pinned articles in saved display order
+      tags:
+      - Administration
+      security:
+      - ownerSession: []
+      responses:
+        '200':
+          description: Complete owner-only list; no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GlobalPinList'
+        default:
+          $ref: '#/components/responses/Problem'
+      description: Includes public and private published pins and their published titles.
+        Never includes unpinned articles or drafts. Does not accept filters or pagination.
+  /admin/pins/order:
+    put:
+      operationId: reorderGlobalPins
+      summary: Save the complete global pin order atomically
+      tags:
+      - Administration
+      security:
+      - ownerSession: []
+        csrfToken: []
+      parameters:
+      - $ref: '#/components/parameters/Origin'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GlobalPinOrder'
+      responses:
+        '200':
+          description: Saved; no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PinOrderSaved'
+        default:
+          $ref: '#/components/responses/Problem'
+      description: Supply every currently pinned article exactly once, including private pins,
+        with its expected article version. Invalid or duplicate entries return 422 invalid_pin_order.
+        Changed membership or stale versions return 409 pin_order_conflict with no changes.
+        Success increments article versions and workspace modification times, preserving content,
+        written/published/updated dates, visibility and category pins. New pins append; unpinning
+        or unpublishing removes them. Home and Archive browse use saved pin order before the
+        selected date sort. Filters retain relative pin order; guests omit private pins.
+        Category pages and search retain their existing ordering. Request bodies are limited to 128 KiB.
   /admin/friends/order:
     put:
       operationId: reorderFriends
@@ -1647,7 +1700,7 @@ components:
       schema:
         type: string
         enum: [written, written_oldest, updated, updated_oldest, newest, oldest, relevance]
-      description: Requires numbered pagination (page). Numbered browse and search default to written (newest writing date first). written_oldest reverses that order; updated and updated_oldest use the live article update timestamp; newest and oldest use first publication time. For browse listings, pinned articles come first and the chosen date orders each group. Search does not promote pins; its chosen date orders all matching results. ID breaks ties in the same direction and missing dates sort last. relevance is accepted only for search. Browse cursors order pinned first, then publication time and ID; older cursors without a pin field resume in the unpinned group. Search cursors retain relevance order.
+      description: Requires numbered pagination (page). Numbered browse and search default to written (newest writing date first). written_oldest reverses that order; updated and updated_oldest use the live article update timestamp; newest and oldest use first publication time. For global browse listings, pinned articles come first in saved manual order and the chosen date orders only unpinned articles. Category-page browse retains category pins first with dates ordering each group. Search does not promote pins; its chosen date orders all matching results. ID breaks ties in the same direction and missing dates sort last. relevance is accepted only for search. Global browse cursors order pins by saved position, then unpinned articles by publication time and ID. Older pinned cursors resolve their article position; older cursors without a pin field resume in the unpinned group. Restart pagination when changing the collection order. Search cursors retain relevance order.
     cursor:
       name: cursor
       in: query
@@ -2135,6 +2188,67 @@ components:
       required:
       - status
       additionalProperties: false
+    GlobalPin:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        slug:
+          type: string
+        title:
+          type: string
+        visibility:
+          type: string
+          enum: [public, private]
+        version:
+          type: integer
+          minimum: 1
+      required: [id, slug, title, visibility, version]
+      additionalProperties: false
+    GlobalPinList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/GlobalPin'
+      required: [items]
+      additionalProperties: false
+      examples:
+      - items: []
+    GlobalPinOrder:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+                format: uuid
+              expected_version:
+                type: integer
+                minimum: 1
+            required: [id, expected_version]
+            additionalProperties: false
+      required: [items]
+      additionalProperties: false
+      examples:
+      - items:
+        - id: 11111111-1111-4111-8111-111111111111
+          expected_version: 3
+    PinOrderSaved:
+      type: object
+      properties:
+        status:
+          type: string
+          const: reordered
+      required: [status]
+      additionalProperties: false
+      examples:
+      - status: reordered
     FriendsReordered:
       type: object
       properties:

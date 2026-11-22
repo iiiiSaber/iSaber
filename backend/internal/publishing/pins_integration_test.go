@@ -3,6 +3,7 @@
 package publishing
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/url"
@@ -154,6 +155,34 @@ func TestPinnedBrowsePaginationFiltersAndSearchOrder(t *testing.T) {
 			corpus = append(corpus, item)
 		}
 	}
+	// Deliberately choose an order that differs from every date sort.
+	pins := []globalPin{}
+	if w := f.call("GET", "/api/v1/admin/pins", "", true); w.Code != 200 {
+		t.Fatalf("pins: %d %s", w.Code, w.Body)
+	} else {
+		var page struct {
+			Items []globalPin `json:"items"`
+		}
+		if err := json.Unmarshal(w.Body.Bytes(), &page); err != nil {
+			t.Fatal(err)
+		}
+		pins = page.Items
+	}
+	versions := map[string]int64{}
+	for _, pin := range pins {
+		versions[pin.ID] = pin.Version
+	}
+	pinOrder := map[string]int{}
+	ordered := []pinOrderItem{}
+	for position, index := range []int{4, 0, 8, 2} {
+		id := corpus[index].ID
+		pinOrder[id] = position
+		ordered = append(ordered, pinOrderItem{ID: id, Version: versions[id]})
+	}
+	orderJSON, _ := json.Marshal(map[string]any{"items": ordered})
+	if w := f.call("PUT", "/api/v1/admin/pins/order", string(orderJSON), true); w.Code != 200 {
+		t.Fatalf("order: %d %s", w.Code, w.Body)
+	}
 	read := func(path string, owner bool) numberedArticlePage {
 		t.Helper()
 		w := f.call("GET", path, "", owner)
@@ -184,6 +213,9 @@ func TestPinnedBrowsePaginationFiltersAndSearchOrder(t *testing.T) {
 					a, b := expected[i], expected[j]
 					if a.Pinned != b.Pinned {
 						return a.Pinned
+					}
+					if a.Pinned {
+						return pinOrder[a.ID] < pinOrder[b.ID]
 					}
 					av, bv := a.WrittenAt, b.WrittenAt
 					if strings.HasPrefix(order, "updated") {
@@ -251,6 +283,18 @@ func TestPinnedBrowsePaginationFiltersAndSearchOrder(t *testing.T) {
 		home := read(root+"articles?limit=4", owner)
 		if len(home.Items) != 4 || !home.Items[0].Pinned {
 			t.Fatal("home cap/order incorrect")
+		}
+		first := read(root+"articles?limit=1", owner)
+		var legacy cursor
+		encoded, err := base64.RawURLEncoding.DecodeString(*first.NextCursor)
+		if err != nil || json.Unmarshal(encoded, &legacy) != nil || legacy.PinPosition == nil {
+			t.Fatal("pinned continuation omitted position")
+		}
+		legacy.PinPosition = nil
+		encoded, _ = json.Marshal(legacy)
+		continued := read(root+"articles?limit=1&cursor="+url.QueryEscape(base64.RawURLEncoding.EncodeToString(encoded)), owner)
+		if len(continued.Items) != 1 || continued.Items[0].ID != home.Items[1].ID {
+			t.Fatal("preceding pinned cursor did not resume in saved order")
 		}
 		dateSearch := read(root+"articles/search?q=needle&limit=10&page=1&sort=written", owner)
 		expectedFirst := corpus[7].ID

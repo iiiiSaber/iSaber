@@ -8,7 +8,7 @@ export default function ArticleContents({ headings, comments = true }: { heading
   const [active, setActive] = useState("");
   const visibleHeadings = headings.filter(heading => heading.depth <= 3);
   useEffect(() => {
-    const small = matchMedia("(max-width: 1000px)");
+    const small = matchMedia("(max-width: 1439px)");
     const resize = () => { if (details.current) details.current.open = !small.matches; };
     resize(); small.addEventListener("change", resize);
     const ids = [...headings.filter(heading => heading.depth <= 3).map(heading => heading.id), ...(comments ? ["comments-title"] : [])];

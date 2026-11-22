@@ -223,6 +223,11 @@ func (s *Service) Controls(ctx context.Context, id string, fields map[string]jso
 		return nil, err
 	}
 	defer tx.Rollback()
+	if fields["pinned"] != nil {
+		if err := lockGlobalPins(ctx, tx); err != nil {
+			return nil, err
+		}
+	}
 	a, err := lockArticle(ctx, tx, id, version)
 	if err != nil {
 		return nil, err
@@ -284,6 +289,11 @@ func (s *Service) Publish(ctx context.Context, owner, id, key string, fields map
 		operation = "unpublish"
 	}
 	return s.idempotent(ctx, owner+":"+operation+":"+id, key, payload, func(tx *sql.Tx) (int, any, error) {
+		if unpublish {
+			if err := lockGlobalPins(ctx, tx); err != nil {
+				return 0, nil, err
+			}
+		}
 		a, err := lockArticle(ctx, tx, id, version)
 		if err != nil {
 			return 0, nil, err
