@@ -28,6 +28,7 @@ func (s *Service) AdminHandler() http.Handler {
 	s.adminLabelRoutes(mux)
 	s.adminCommentRoutes(mux)
 	s.adminFriendRoutes(mux)
+	s.pinOrderRoutes(mux)
 	s.readingRoutes(mux)
 	mux.HandleFunc("GET /api/v1/admin/articles", s.listAdmin)
 	mux.HandleFunc("GET /api/v1/admin/articles/{article_id}", func(w http.ResponseWriter, r *http.Request) {
@@ -159,7 +160,7 @@ func serveRoutes(mux *http.ServeMux, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	allowed := []string{}
-	for _, method := range []string{"GET", "HEAD", "POST", "PATCH"} {
+	for _, method := range []string{"GET", "HEAD", "POST", "PATCH", "PUT"} {
 		probe := r.Clone(r.Context())
 		probe.Method = method
 		if _, pattern := mux.Handler(probe); pattern != "" {
@@ -339,10 +340,11 @@ func sendResult(w http.ResponseWriter, result response, err error) {
 }
 
 type cursor struct {
-	Pinned bool      `json:"pinned,omitempty"`
-	Time   time.Time `json:"time"`
-	ID     string    `json:"id"`
-	Filter string    `json:"filter"`
+	PinPosition *int64    `json:"pin_position,omitempty"`
+	Pinned      bool      `json:"pinned,omitempty"`
+	Time        time.Time `json:"time"`
+	ID          string    `json:"id"`
+	Filter      string    `json:"filter"`
 }
 
 func pageOptions(values url.Values) (int, *cursor, string, error) {
@@ -480,6 +482,7 @@ type publicArticleSummary struct {
 
 type publicArticle struct {
 	publicArticleSummary
+	PinPosition     *int64 `json:"-"`
 	Markdown        string `json:"markdown"`
 	CommentsEnabled bool   `json:"comments_enabled"`
 }
@@ -497,8 +500,8 @@ func readPublicArticle(ctx context.Context, q queryer, slug string) (publicArtic
 	var value publicArticle
 	var revisionID string
 	var visibility string
-	err := q.QueryRowContext(ctx, `SELECT id,slug,published_revision_id,published_at,updated_at,comments_enabled,visibility,pinned,category_pinned FROM articles
-        WHERE slug=$1 AND ($2 OR visibility='public') AND published_revision_id IS NOT NULL`, slug, ownerReading(ctx)).Scan(&value.ID, &value.Slug, &revisionID, &value.PublishedAt, &value.UpdatedAt, &value.CommentsEnabled, &visibility, &value.Pinned, &value.CategoryPinned)
+	err := q.QueryRowContext(ctx, `SELECT id,slug,published_revision_id,published_at,updated_at,comments_enabled,visibility,pinned,category_pinned,pin_position FROM articles
+        WHERE slug=$1 AND ($2 OR visibility='public') AND published_revision_id IS NOT NULL`, slug, ownerReading(ctx)).Scan(&value.ID, &value.Slug, &revisionID, &value.PublishedAt, &value.UpdatedAt, &value.CommentsEnabled, &visibility, &value.Pinned, &value.CategoryPinned, &value.PinPosition)
 	if errors.Is(err, sql.ErrNoRows) {
 		return value, fault(404, "not_found")
 	}
@@ -556,10 +559,30 @@ func (s *Service) listPublic(w http.ResponseWriter, r *http.Request) {
 		at = &after.Time
 		id = &after.ID
 	}
+	var position *int64
+	if after != nil && after.Pinned {
+		position = after.PinPosition
+		// Resolve preceding pinned cursors against the now-persisted order.
+		if position == nil {
+			var existing int64
+			if err := s.db.QueryRowContext(r.Context(), `SELECT pin_position FROM articles WHERE id=$1 AND pinned AND (visibility='public' OR $2)`, after.ID, ownerReading(r.Context())).Scan(&existing); err != nil {
+				reply(w, nil, fault(400, "invalid_cursor"))
+				return
+			}
+			position = &existing
+		}
+		if *position < 1 {
+			reply(w, nil, fault(400, "invalid_cursor"))
+			return
+		}
+	}
 	rows, err := s.db.QueryContext(r.Context(), `SELECT a.slug FROM articles a JOIN revisions r ON r.id=a.published_revision_id LEFT JOIN categories c ON c.id=r.category_id
         WHERE (a.visibility='public' OR $7) AND ($1='' OR r.language=$1) AND ($2='' OR c.slug=$2)
         AND ($3='' OR EXISTS(SELECT 1 FROM revision_tags rt JOIN tags t ON t.id=rt.tag_id WHERE rt.revision_id=r.id AND t.slug=$3))
-        AND ($4::timestamptz IS NULL OR (a.pinned,a.published_at,a.id)<($8,$4,$5::uuid)) ORDER BY a.pinned DESC,a.published_at DESC,a.id DESC LIMIT $6`, language, category, tag, at, id, limit+1, ownerReading(r.Context()), after != nil && after.Pinned)
+        AND ($4::timestamptz IS NULL
+          OR ($8 AND (NOT a.pinned OR a.pin_position>$9::bigint))
+          OR (NOT $8 AND NOT a.pinned AND (a.published_at,a.id)<($4,$5::uuid)))
+        ORDER BY a.pinned DESC,a.pin_position ASC NULLS LAST,a.published_at DESC,a.id DESC LIMIT $6`, language, category, tag, at, id, limit+1, ownerReading(r.Context()), after != nil && after.Pinned, position)
 	if err != nil {
 		reply(w, nil, err)
 		return
@@ -601,7 +624,7 @@ func (s *Service) listPublic(w http.ResponseWriter, r *http.Request) {
 	}
 	var next *string
 	if more && len(items) > 0 {
-		data, _ := json.Marshal(cursor{Time: last.PublishedAt, ID: last.ID, Filter: filter, Pinned: last.Pinned})
+		data, _ := json.Marshal(cursor{Time: last.PublishedAt, ID: last.ID, Filter: filter, Pinned: last.Pinned, PinPosition: last.PinPosition})
 		encoded := base64.RawURLEncoding.EncodeToString(data)
 		next = &encoded
 	}

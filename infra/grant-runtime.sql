@@ -10,6 +10,7 @@ GRANT CONNECT ON DATABASE :"database" TO isaber_runtime;
 REVOKE CREATE ON SCHEMA public FROM PUBLIC;
 GRANT USAGE ON SCHEMA public TO isaber_runtime;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO isaber_runtime;
+GRANT USAGE ON SEQUENCE article_pin_position_seq TO isaber_runtime;
 REVOKE ALL ON owners, goose_db_version FROM isaber_runtime;
 GRANT SELECT ON owners, goose_db_version TO isaber_runtime;
 GRANT UPDATE(singleton) ON owners TO isaber_runtime;

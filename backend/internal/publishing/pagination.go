@@ -123,7 +123,7 @@ func (s *Service) listPublicNumbered(w http.ResponseWriter, r *http.Request, val
 	}
 	page := options.result(total)
 	args = append(args, page.PageSize, page.offset())
-	pinOrder := "a.pinned DESC,"
+	pinOrder := "a.pinned DESC,a.pin_position ASC NULLS LAST,"
 	if r.Context().Value(categoryReadingKey{}) != nil {
 		pinOrder = "a.category_pinned DESC,"
 	}

@@ -85,7 +85,7 @@
 .archive-article-row:focus-within { outline: 3px solid var(--site-accent); outline-offset: 3px; }
 .archive-article-row:hover,.archive-article-row:focus-within { background: var(--site-hover); }
 .archive-article-row:hover h3,.archive-article-row:focus-within h3 { color: var(--site-accent); }
-.archive-summary { max-width: 65ch; font-size: 15px; line-height: 1.7; color: var(--site-muted); margin: 0 0 20px; }
+.archive-summary { max-width: 76ch; font-size: 15px; line-height: 1.7; color: var(--site-muted); margin: 0 0 20px; }
 .archive-article-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; font-size: 13px; color: var(--archive-muted); }
 .archive-category { color: var(--site-badge-ink); background: var(--site-badge-bg); padding: 4px 9px; }
 .archive-language { margin-left: auto; text-transform: uppercase; letter-spacing: .08em; }

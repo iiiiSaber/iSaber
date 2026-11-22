@@ -92,6 +92,10 @@ for name, schema in spec["components"]["schemas"].items():
         validator(name).validate(example)
 
 invalid = [
+    ("GlobalPinOrder", {"items": None}),
+    ("GlobalPinOrder", {"items": [{"id": "not-a-uuid", "expected_version": 1}]}),
+    ("GlobalPinOrder", {"items": [{"id": "11111111-1111-4111-8111-111111111111", "expected_version": 0}]}),
+    ("GlobalPinOrder", {"items": [{"id": "11111111-1111-4111-8111-111111111111", "expected_version": 1, "position": 1}]}),
     ("SubmitFriendRequest", {"site_name": "x", "site_url": "http://friend.example", "introduction": "Hello"}),
     ("SubmitFriendRequest", {"site_name": "x", "site_url": "https://friend.example", "introduction": "Hello", "icon_url": None}),
     ("SubmitFriendRequest", {"site_name": "x", "site_url": "https://friend.example", "introduction": "Hello", "published": True}),

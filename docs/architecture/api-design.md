@@ -62,7 +62,7 @@ Draft issues are distinct from HTTP errors. An import can finish successfully wi
 
 Use opaque cursors and `limit` (default 20, maximum 100). A cursor encodes the ordering position and relevant query/filter context; reject reuse with different filters. Return `next_cursor: null` at the end. Lists are not a cross-request snapshot; concurrent publication can change results.
 
-- Public articles: `published_at DESC, id DESC`.
+- Public global browse: saved global pins first; unpinned articles use `published_at DESC, id DESC` in cursor mode or the selected date sort in numbered mode. Category browse keeps its independent category pins/date ordering.
 - Search: all whitespace-separated terms must match in title, summary/tag names, or parsed Markdown body. Rank by the highest field level needed to satisfy all terms, then first publication time and ID descending. `q` is required, nonblank, and at most 200 Unicode characters. ASCII identifiers match whole words ignoring case; Chinese and punctuation terms match literal substrings. Empty queries return 400, while no matches return an empty ArticlePage. See [ADR 0009](decisions/0009-public-search.md) for matching, cursor, and execution details.
 - Owner articles: `modified_at DESC, id DESC`; `q` searches draft title or latest retained title, not private content through public endpoints.
 - Revision history: only previously published snapshots, newest first, with stable ID tie-breaker. Preview accesses the current draft separately.
@@ -133,3 +133,8 @@ Add optional response fields compatibly. Changes to required requests, response 
 - [RFC 9457](https://www.rfc-editor.org/info/rfc9457/): problem details for HTTP APIs.
 
 These standards define contract and error formats; lifecycle, version fields, and idempotency policies above are approved project design decisions.
+
+
+## Manual global pin order
+
+Owner endpoints `GET /admin/pins` and `PUT /admin/pins/order` expose a complete pin list and atomic reorder. Saved order precedes date sorting only on global browse endpoints (including filtered Home/Archive lists). Guest lists exclude private publications without changing relative public pin order. Search and dedicated category pages keep their existing sort rules. A save supplies all current IDs with article versions; changed membership/versions return 409 `pin_order_conflict`, and malformed/duplicate entries return 422 `invalid_pin_order`. Unconfirmed saves must be reconciled by reloading; a stale retry cannot apply twice. See the [publishing guide](../operations/publishing.md#manual-global-pin-order-feature-8) for UI behavior and migration requirements.
