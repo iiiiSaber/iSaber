@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 
 export default function ReadingSession({ owner, expiresAt, children }: { owner: boolean; expiresAt: string | null; children: ReactNode }) {
   const [hidden, setHidden] = useState(false);
   const pathname = usePathname();
+  const router = useRouter();
   useEffect(() => {
     if (pathname === "/admin" || pathname.startsWith("/admin/")) return;
     let active = true;
@@ -23,7 +24,12 @@ export default function ReadingSession({ owner, expiresAt, children }: { owner: 
         else if (response.ok) {
           const session = await response.json() as { expires_at?: string };
           if (!active || reloading || request !== controller || typeof session.expires_at !== "string" || !Number.isFinite(Date.parse(session.expires_at))) return;
-          if (!owner) reload(); else setHidden(false);
+          if (!owner) {
+            // A Strict session cookie can be absent on an external first visit.
+            // Keep the safe public page visible while fetching the owner view.
+            reloading = true;
+            router.refresh();
+          } else setHidden(false);
         }
       } catch { /* A temporary outage does not change the authenticated scope. */ }
     }
@@ -43,6 +49,6 @@ export default function ReadingSession({ owner, expiresAt, children }: { owner: 
     document.addEventListener("visibilitychange", visible);
     void check(); deadline();
     return () => { active = false; request?.abort(); clearTimeout(timer); channel?.close(); window.removeEventListener("focus", check); window.removeEventListener("pageshow", restored); document.removeEventListener("visibilitychange", visible); };
-  }, [owner, expiresAt, pathname]);
+  }, [owner, expiresAt, pathname, router]);
   return hidden ? <p className="reading-session-status" role="status">Refreshing your reading view…</p> : children;
 }
