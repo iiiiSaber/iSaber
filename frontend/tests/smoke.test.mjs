@@ -293,11 +293,13 @@ test("production frontend handles unavailable and older backend capabilities", a
       assert.match(ownerHTML, /class="private-writing-label"/);
       assert.match(ownerHTML, /class="pinned-writing-label"/);
       assert.match(ownerHTML, /noindex/);
+      assert.equal((ownerHTML.match(/<a\b[^>]*href="\/admin"[^>]*>Admin<\/a>/g) ?? []).length, 2, "Owner navigation includes Admin in desktop and mobile menus");
       assert.doesNotMatch(ownerHTML, /isaber_dev_session=reader-fixture|private-csrf-fixture/);
       assert.match(owned.headers.get("cache-control") ?? "", /private/);
       assert.match(owned.headers.get("cache-control") ?? "", /no-store/);
       const guestHTML = await (await fetch(`${origin}${path}`)).text();
       assert.doesNotMatch(guestHTML, /Private fixture title|Private fixture summary|Private category fixture|owner-only-body-marker/);
+      assert.doesNotMatch(guestHTML, /<a\b[^>]*href="\/admin"[^>]*>Admin<\/a>/);
     }
     const protectedRequests = publicRequests.filter(request => request.path.startsWith("/api/v1/admin/reading"));
     assert.ok(protectedRequests.length > 0);
@@ -325,6 +327,7 @@ test("production frontend handles unavailable and older backend capabilities", a
     try {
       const html = await (await fetch(origin, { headers: { Cookie: readerCookie } })).text();
       assert.doesNotMatch(html, /Private fixture title|Private fixture summary|owner-only-body-marker/);
+      assert.doesNotMatch(html, /<a\b[^>]*href="\/admin"[^>]*>Admin<\/a>/);
       assert.equal((await fetch(`${origin}/articles/private-fixture`, { headers: { Cookie: readerCookie } })).status, 404);
     } finally { readerAuthenticated = true; }
   });

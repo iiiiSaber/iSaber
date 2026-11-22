@@ -31,7 +31,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
         <ThemeProvider initialTheme={theme}>
           <a className="skip-link" href="#content">Skip to content</a>
           <ReadingSession owner={!!access} expiresAt={access?.expiresAt ?? null}>
-            <SiteHeader />
+            <SiteHeader owner={!!access} />
             <main id="content" className="app-main">{children}</main>
           </ReadingSession>
         </ThemeProvider>

@@ -7,12 +7,12 @@ import { ThemeToggle } from "./theme-provider";
 
 const links = [{ href: "/archive", label: "Archive" }, { href: "/friends", label: "Friends" }, { href: "/about", label: "About" }, { href: "/archive#archive-search-panel", label: "Search" }];
 
-export default function SiteHeader() {
+export default function SiteHeader({ owner = false }: { owner?: boolean }) {
   const pathname = usePathname();
   const menu = useRef<HTMLDetailsElement>(null);
   useEffect(() => { if (pathname && menu.current) menu.current.open = false; }, [pathname]);
   if (pathname === "/admin" || pathname.startsWith("/admin/")) return null;
-  const navigation = links.map(({ href, label }) => <Link key={href} href={label === "Search" && pathname === "/archive" ? "#archive-search-panel" : href} aria-current={pathname === href ? "page" : undefined} onClick={event => {
+  const navigation = (owner ? [...links, { href: "/admin", label: "Admin" }] : links).map(({ href, label }) => <Link key={href} href={label === "Search" && pathname === "/archive" ? "#archive-search-panel" : href} prefetch={href === "/admin" ? false : undefined} aria-current={pathname === href ? "page" : undefined} onClick={event => {
     if (menu.current) menu.current.open = false;
     if (label === "Search" && pathname === "/archive" && event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey) {
       // Open the existing Archive controls without dropping applied conditions.
