@@ -4,7 +4,6 @@
 .archive-page a { color: inherit; text-underline-offset: .25em; }
 .archive-state a { display: inline-flex; align-items: center; min-height: 44px; margin-right: 24px; }
 .archive-collection-end a { min-height: 44px; display: inline-flex; align-items: center; }
-.archive-footer a { min-height: 44px; display: inline-flex; align-items: center; }
 .archive-page button,.archive-page input,.archive-page select { font: inherit; max-width: 100%; min-height: 44px; }
 .archive-page button { cursor: pointer; }
 .archive-page :disabled { opacity: .65; cursor: wait; }
@@ -97,8 +96,6 @@
 .archive-state > p:not(.archive-eyebrow) { color: var(--archive-muted); margin: 0 0 24px; }
 .archive-collection-end { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 20px; padding: 36px 0 48px; border-top: 1px solid var(--archive-line); margin-top: 12px; }
 .archive-collection-end p { font-size: 14px; color: var(--archive-muted); margin: 0; }
-.archive-footer { color: #fff; display: flex; justify-content: space-between; gap: 20px; padding: 28px max(28px,calc((100% - 1264px)/2)); background: #222c86; font-size: 13px; }
-.archive-footer nav { display: flex; gap: 24px; }
 @media (max-width: 800px) {
   .archive-masthead { grid-template-columns: 1.25fr 1fr; padding-top: 40px; }
   .archive-masthead h1 { font-size: clamp(4rem,13vw,8rem); }
@@ -135,7 +132,6 @@
   .archive-article-meta { gap: 10px 12px; }
   .archive-language { margin-left: 0; }
   .archive-article-arrow { font-size: 25px; }
-  .archive-footer { padding: 20px 18px; }
   .archive-state { padding: 32px 20px; }
   .archive-results-note { font-size: 12px; }
   .archive-sort { margin-left: 0; width: 100%; gap: 2px 12px; }

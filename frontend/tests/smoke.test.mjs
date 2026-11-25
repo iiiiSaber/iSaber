@@ -61,6 +61,9 @@ test("production frontend handles unavailable and older backend capabilities", a
         const page = Math.min(Number(url.searchParams.get("page")), totalPages);
         response.end(JSON.stringify({ items: items.slice((page - 1) * pageSize, page * pageSize), next_cursor: null, page, page_size: pageSize, total: items.length, total_pages: totalPages }));
       } else response.end(JSON.stringify({ items, next_cursor: listMode === "empty" ? null : "fixture-next" }));
+    } else if (url.pathname === "/api/v1/categories/notes") {
+      response.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-store" });
+      response.end(JSON.stringify({ ...sampleArticles[0].category, description_en: "Notes for review", description_zh: "", total: sampleArticles.length }));
     } else if (request.url === "/api/v1/articles/legacy-article") {
       response.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-store" });
       response.end(JSON.stringify({ id: "11111111-1111-4111-8111-111111111111", slug: "legacy-article", title: "Legacy article", summary: "A readable existing article.", language: "en", written_at: "2026-11-07", published_at: "2026-11-07T08:00:00Z", updated_at: "2026-11-07T08:00:00Z", category: null, tags: [], markdown: "Existing article body.", comments_enabled: true }));
@@ -386,6 +389,16 @@ test("production frontend handles unavailable and older backend capabilities", a
     assert.match(html, /Existing article body/);
     assert.match(html, /Comments are temporarily unavailable/);
     assert.match(html, /New comments are disabled or unavailable/);
+  });
+  await t.test("site pages render one shared ICP link after the main content", async () => {
+    for (const path of ["/", "/about", "/archive", "/search?q=Go", "/categories/notes", "/articles/legacy-article", "/friends", "/admin"]) {
+      const response = await fetch(`${origin}${path}`);
+      assert.equal(response.status, 200, path);
+      const html = await response.text();
+      const footer = html.match(/<\/main><footer id="site-footer"[^>]*>(.*?)<\/footer>/s)?.[1] ?? "";
+      assert.match(footer, /<a\b[^>]*href="https:\/\/beian\.miit\.gov\.cn\/"[^>]*>渝ICP备2026030502号-1<\/a>/, path);
+      assert.equal((html.match(/<a\b[^>]*href="https:\/\/beian\.miit\.gov\.cn\/"/g) ?? []).length, 1, path);
+    }
   });
   await t.test("liveness is explicitly uncached", async () => {
     const response = await fetch(`${origin}/healthz`);

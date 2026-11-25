@@ -58,6 +58,5 @@ export default async function ArticlePage({ params }: Props) {
         {article.visibility !== "private" && <ArticleComments articleId={article.id} enabled={!missing && article.comments_enabled} initialPage={commentPage} unavailable={!commentPage} />}
       </div>
     </div>
-    <footer className="article-footer"><Link className="site-brand" href="/">iSaber</Link><nav aria-label="Footer"><Link href="/archive">Archive ↗</Link><Link href="/about">About ↗</Link></nav></footer>
   </article>;
 }

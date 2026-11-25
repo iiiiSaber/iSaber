@@ -41,7 +41,6 @@ export default function ArchiveView({ page, query, categories, tags, labelsUnava
       {page && !error && <Pagination current={page.page} total={page.total_pages} query={query} basePath={basePath} />}
       <div className="archive-collection-end"><p>{page && page.items.length > 0 && page.page === page.total_pages ? "You’ve reached the end of this collection." : ""}</p><a href="#content">Back to the top ↑</a></div>
     </section>
-    <footer className="archive-footer"><Link className="site-brand" href="/">iSaber</Link><nav aria-label="Footer"><Link href="/">Home ↗</Link><Link href="/about">About ↗</Link></nav></footer>
   </div>;
 }
 

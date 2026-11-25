@@ -66,8 +66,6 @@
 .home-state h3 { margin: 0; }
 .home-explore { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px; padding: 28px; margin-top: auto; border-block: 1px solid var(--site-line); background: var(--home-panel); color: var(--site-ink); }
 .home-explore p { margin: 0; }
-.home-footer { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding: 24px 28px; font-size: .85rem; background: var(--home-panel); color: var(--site-ink); }
-.home-footer nav { display: flex; gap: 20px; }
 @container (max-width: 620px) {
   .home-hero { padding: 86px 20px 24px; }
   .home-title { font-size: clamp(3rem,19cqi,5rem); }
