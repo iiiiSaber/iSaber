@@ -82,7 +82,6 @@ export default async function Home({ searchParams }: { searchParams: Promise<Par
           </li>)}</ol>}
       </section>
       <section className="home-explore" aria-label="Explore more writing"><p>There is more to explore.</p><Link href="/archive">Browse all articles <span aria-hidden="true">↗</span></Link></section>
-      <footer className="home-footer"><a href="#content">iSaber <span aria-hidden="true">↑</span></a><nav aria-label="Footer"><Link href="/archive">Archive</Link><Link href="/about">About</Link></nav></footer>
       </div>
     </section>
   </HomeMotion>;

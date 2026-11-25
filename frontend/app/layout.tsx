@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
+import SiteFooter from "../components/site-footer";
 import SiteHeader from "../components/site-header";
 import ThemeProvider from "../components/theme-provider";
 import ReadingSession from "../components/reading-session";
@@ -33,6 +34,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
           <ReadingSession owner={!!access} expiresAt={access?.expiresAt ?? null}>
             <SiteHeader owner={!!access} />
             <main id="content" className="app-main">{children}</main>
+            <SiteFooter />
           </ReadingSession>
         </ThemeProvider>
       </body>

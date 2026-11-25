@@ -106,9 +106,6 @@ html[data-theme="dark"] .friend-card-peach { background: #4d304f; color: #e5e9f6
 .friends-request-summary dt { font-size: 12px; color: var(--site-muted); margin-top: 16px; }
 .friends-request-summary dd { margin: 4px 0 16px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .friends-sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-.friends-footer { display: flex; justify-content: space-between; align-items: center; gap: 20px; padding: 22px 28px; background: var(--site-header); color: #fff; font-size: 13px; }
-.friends-footer nav { display: flex; flex-wrap: wrap; gap: 24px; }
-.friends-footer a { display: inline-flex; min-height: 44px; align-items: center; }
 .friends-sample-dialog { width: min(560px,calc(100% - 36px)); max-height: calc(100dvh - 40px); overflow-y: auto; padding: clamp(24px,4vw,42px); border: 0; border-top: 4px solid var(--site-accent); background: var(--site-bg); color: var(--site-ink); }
 .friends-sample-dialog::backdrop { background: rgb(15 20 45 / .65); }
 .friends-sample-dialog h2 { font-size: 2.4rem; font-weight: 500; line-height: 1.1; letter-spacing: -.055em; margin: 0 0 16px; overflow-wrap: anywhere; }
@@ -158,8 +155,6 @@ html[data-theme="dark"] .friend-card-peach { background: #4d304f; color: #e5e9f6
   .friends-request h2 br { display: none; }
   .friends-request-fields { grid-template-columns: minmax(0,1fr); }
   .friends-site-card { padding: 20px; }
-  .friends-footer { padding: 18px; font-size: 12px; }
-  .friends-footer nav { gap: 18px; }
 }
 .friends-motion-control { display: flex; align-items: center; gap: 8px; font-size: 11px; }
 @media (prefers-reduced-motion: reduce) { .friends-page:not([data-motion="on"]) .friends-circle { animation: none; } }
