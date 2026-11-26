@@ -63,6 +63,7 @@ Open `http://127.0.0.1:3000`, then `/admin` to sign in. Upload a `.md` file or a
 | Frontend `/` | Vivid full-screen Home, personal introduction, and up to four recent public articles |
 | Frontend `/archive`, `/search` | Public browsing/search with category, tag, language filters, and pagination; legacy homepage query links redirect here |
 | Frontend `/about` | Short site introduction |
+| Frontend `/feed.xml`, Go `/api/v1/feed.xml` | RSS 2.0 summaries of the latest 20 public publications, independent of pins; supports HEAD and conditional requests |
 | Frontend `/admin` | Owner sign-in/out, imports, metadata, preview, publishing, history/restoration, category/tag management, comment moderation/controls, and private reading |
 | Frontend `/articles/{slug}` | Published public Markdown, code, math, and dates; private/missing articles return 404 |
 | Frontend `/healthz` | Frontend process liveness |
@@ -80,6 +81,8 @@ Open `http://127.0.0.1:3000`, then `/admin` to sign in. Upload a `.md` file or a
 
 Configure Go's bind address with `HTTP_ADDR`. Configure the frontend's proxy target with `BACKEND_ORIGIN` (see `frontend/.env.example`). Next.js evaluates the proxy target at build/dev startup; rebuild production after changing it. Do not put credentials into this URL or browser-visible environment variables.
 
+Set the same `SITE_ORIGIN` in Go and the frontend so RSS article links and discovery metadata use the canonical origin. Production requires an HTTPS origin. Frontend development defaults to `http://127.0.0.1:3000`; `APP_ENV=development` also permits a loopback origin when reviewing a production build locally. The Compose files pass the appropriate production/rehearsal origin. See the [RSS specification and rollout notes](docs/product/rss-feed-spec.md).
+
 Both development servers bind to loopback. Development authentication uses an isolated local HTTP cookie. Production authentication requires an HTTPS site origin, secure cookies, and an injected CSRF key; TLS hosting and cloud deployment are not configured by these local commands.
 
 ## Container rehearsal
@@ -93,7 +96,7 @@ Run from `frontend/`:
 ```bash
 npm run typecheck
 npm run lint
-npm run build
+SITE_ORIGIN=https://blog.example npm run build
 npm run test:smoke
 ```
 

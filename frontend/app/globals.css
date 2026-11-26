@@ -19,11 +19,11 @@ p { max-width: 65ch; }
 .site-nav { display: flex; flex-wrap: wrap; gap: 24px; }
 .site-nav a { display: inline-flex; min-height: 44px; align-items: center; font-weight: 400; text-underline-offset: .25em; }
 .site-nav a:hover,.site-nav a[aria-current="page"] { text-decoration: underline; }
-.site-github { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 44px; flex-shrink: 0; }
-.site-github::before { content: ""; position: absolute; inset: 0 -10px; }
-.site-github-label { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-.site-github:hover { background: #2b2b35; color: #ffb4d0; }
-.site-github:focus-visible { outline: 3px solid #ffb4d0; outline-offset: 4px; }
+.site-github,.site-rss { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 44px; flex-shrink: 0; }
+.site-github::before,.site-rss::before { content: ""; position: absolute; inset: 0 -10px; }
+.site-github-label,.site-rss-label { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.site-github:hover,.site-rss:hover { background: #2b2b35; color: #ffb4d0; }
+.site-github:focus-visible,.site-rss:focus-visible { outline: 3px solid #ffb4d0; outline-offset: 4px; }
 .site-mobile-nav { display: none; position: relative; }
 .site-mobile-nav summary { min-height: 44px; display: list-item; align-content: center; cursor: pointer; }
 .site-mobile-nav nav { position: absolute; right: 0; top: 100%; min-width: 180px; padding: 12px; border: 1px solid var(--site-control-line); background: var(--site-header); }
@@ -37,8 +37,8 @@ p { max-width: 65ch; }
   .site-header { min-height: 64px; padding: 8px 18px; }
   .site-nav { display: none; }
   .site-mobile-nav { display: block; }
-  .site-github { width: 44px; }
-  .site-github::before { inset: 0; }
+  .site-github,.site-rss { width: 44px; }
+  .site-github::before,.site-rss::before { inset: 0; }
 }
 .owner-access { max-width: 32rem; }
 .owner-access form { display: grid; gap: 0.75rem; }

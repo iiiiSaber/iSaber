@@ -14,6 +14,8 @@ const origin = "http://127.0.0.1:4317";
 test("production frontend handles unavailable and older backend capabilities", async (t) => {
   let listMode = "unavailable";
   let friendMode = "unavailable";
+  let feedMode = "normal", feedVersion = 1;
+  const feedXML = () => `<?xml version="1.0" encoding="UTF-8"?><rss version="2.0"><channel><title>iSaber</title><link>https://blog.example/</link><description>English and 中文</description>${feedVersion === 1 ? '<item><title>Public RSS 中文</title><link>https://blog.example/articles/rss-fixture</link><guid isPermaLink="false">urn:uuid:11111111-1111-4111-8111-111111111111</guid></item>' : ''}</channel></rss>`;
   const publicRequests = [];
   let readerAuthenticated = true;
   const readerCookie = "isaber_dev_session=reader-fixture";
@@ -31,8 +33,19 @@ test("production frontend handles unavailable and older backend capabilities", a
   const privateArticle = { ...sampleArticles[0], id: "33333333-3333-4333-8333-333333333333", slug: "private-fixture", title: "Private fixture title", summary: "Private fixture summary", visibility: "private", pinned: true, markdown: "# Private fixture title\n\nowner-only-body-marker", comments_enabled: true };
   const olderAPI = createServer((request, response) => {
     const url = new URL(request.url, "http://fixture.invalid");
-    publicRequests.push({ path: url.pathname, query: url.searchParams, cookie: request.headers.cookie });
-    if (url.pathname === "/api/v1/friends" && friendMode !== "unavailable") {
+    publicRequests.push({ path: url.pathname, query: url.searchParams, cookie: request.headers.cookie, authorization: request.headers.authorization });
+    if (url.pathname === "/api/v1/feed.xml") {
+      if (feedMode === "unavailable") { response.writeHead(503, {"Content-Type":"application/problem+json"}); response.end('{"private":"upstream-detail-marker"}'); return; }
+      if (feedMode === "html") { response.writeHead(200, {"Content-Type":"text/html"}); response.end("upstream-detail-marker"); return; }
+      if (feedMode === "redirect") { response.writeHead(302, {Location:"/api/v1/auth/session"}); response.end(); return; }
+      const etag = `W/"rss-${feedVersion}"`;
+      const headers = {"Content-Type":"application/rss+xml; charset=utf-8","Cache-Control":"no-cache, max-age=0, must-revalidate",ETag:etag,"Set-Cookie":"must-not-be-forwarded=fixture"};
+      if (request.headers["if-none-match"] === etag || request.headers["if-none-match"] === "*") { response.writeHead(304, headers); response.end(); return; }
+      response.writeHead(200, headers);
+      if (feedMode === "oversized") response.end("x".repeat(1024*1024+1));
+      else if (feedMode === "truncated") { response.write("<?xml "); response.destroy(); }
+      else response.end(feedXML());
+    } else if (url.pathname === "/api/v1/friends" && friendMode !== "unavailable") {
       response.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-store" });
       response.end(JSON.stringify({ items: friendMode === "empty" ? [] : [{ id: "friend-fixture", site_name: "Friends fixture 中文", site_url: "https://friend.example/", introduction: "A public corner of the web.", icon_url: "https://friend.example/icon.png" }] }));
     } else if (url.pathname === "/api/v1/auth/session") {
@@ -74,7 +87,7 @@ test("production frontend handles unavailable and older backend capabilities", a
   const backend = `http://127.0.0.1:${olderAPI.address().port}`;
   const server = spawn(process.execPath, [require.resolve("next/dist/bin/next"), "start", "--hostname", "127.0.0.1", "--port", "4317"], {
     cwd: root,
-    env: { ...process.env, NODE_ENV: "production", NEXT_TELEMETRY_DISABLED: "1", BACKEND_ORIGIN: backend },
+    env: { ...process.env, NODE_ENV: "production", APP_ENV: "production", NEXT_TELEMETRY_DISABLED: "1", BACKEND_ORIGIN: backend, SITE_ORIGIN: "https://blog.example" },
     stdio: ["ignore", "pipe", "pipe"],
   });
   let logs = "";
@@ -101,6 +114,54 @@ test("production frontend handles unavailable and older backend capabilities", a
     await delay(100);
   }
   assert.ok(ready, `Frontend did not become ready:\n${logs}`);
+
+  await t.test("RSS proxy is always public, preserves validators and strips cookies", async () => {
+    publicRequests.length = 0;
+    const response = await fetch(`${origin}/feed.xml?visibility=private&limit=1000`, {headers:{Cookie:readerCookie,Authorization:"Bearer fixture-ignored", "X-Forwarded-Host":"untrusted.invalid"}});
+    assert.equal(response.status,200);
+    assert.equal(response.headers.get("content-type"),"application/rss+xml; charset=utf-8");
+    assert.equal(response.headers.get("cache-control"),"no-cache, max-age=0, must-revalidate");
+    assert.equal(response.headers.get("set-cookie"),null);
+    assert.equal(await response.text(),feedXML());
+    assert.deepEqual(publicRequests.map(r=>r.path),["/api/v1/feed.xml"]);
+    assert.equal(publicRequests[0].cookie,undefined);assert.equal(publicRequests[0].authorization,undefined);
+    assert.equal(publicRequests[0].query.size,0);
+    const etag=response.headers.get("etag");
+    const unchanged=await fetch(`${origin}/feed.xml`,{headers:{"If-None-Match":etag}});
+    assert.equal(unchanged.status,304);assert.equal(await unchanged.text(),"");assert.equal(unchanged.headers.get("etag"),etag);
+    feedVersion=2;
+    const removed=await fetch(`${origin}/feed.xml`,{headers:{"If-None-Match":etag}});
+    assert.equal(removed.status,200);assert.notEqual(removed.headers.get("etag"),etag);assert.equal(await removed.text(),feedXML());
+    const head=await fetch(`${origin}/feed.xml`,{method:"HEAD"});assert.equal(head.status,200);assert.equal(await head.text(),"");
+    const conditionalHead=await fetch(`${origin}/feed.xml`,{method:"HEAD",headers:{"If-None-Match":head.headers.get("etag")}});assert.equal(conditionalHead.status,304);
+  });
+  await t.test("RSS errors never become empty feeds, private errors or login redirects", async () => {
+    for(const mode of ["unavailable","html","redirect","oversized","truncated"]) {
+      feedMode=mode;
+      const response=await fetch(`${origin}/feed.xml`);
+      assert.equal(response.status,503,mode);assert.equal(response.headers.get("cache-control"),"no-store");assert.equal(response.headers.get("retry-after"),"60");
+      assert.equal(response.headers.get("set-cookie"),null);assert.equal(response.headers.get("etag"),null);
+      const body=await response.text();assert.match(body,/feed_unavailable/);assert.doesNotMatch(body,/upstream-detail-marker|private-owner-fixture/);
+    }
+    feedMode="unavailable";
+    const head=await fetch(`${origin}/feed.xml`,{method:"HEAD"});assert.equal(head.status,503);assert.equal(await head.text(),"");
+    feedMode="normal";
+    for(const method of ["POST","PUT","PATCH","DELETE","OPTIONS"]) {
+      const response=await fetch(`${origin}/feed.xml`,{method});assert.equal(response.status,405);assert.equal(response.headers.get("allow"),"GET, HEAD");
+    }
+  });
+  await t.test("RSS links and canonical discovery are available publicly and omitted from Admin metadata", async () => {
+    for(const path of ["/","/about","/archive","/friends","/articles/legacy-article"]) {
+      const html=await(await fetch(origin+path,{headers:{"User-Agent":"Googlebot"}})).text();
+      const head=html.split("</head>")[0];
+      const discovery = head.match(/<link\b[^>]*type="application\/rss\+xml"[^>]*>/)?.[0] ?? "";
+      assert.match(discovery,/rel="alternate"/); assert.match(discovery,/title="iSaber RSS"/); assert.match(discovery,/href="https:\/\/blog.example\/feed.xml"/);
+      assert.match(html,/<a[^>]*class="site-rss"[^>]*href="\/feed.xml"/);
+      assert.match(html,/>RSS<\/a>/);
+    }
+    const admin=await(await fetch(`${origin}/admin`,{headers:{"User-Agent":"Googlebot"}})).text();
+    assert.doesNotMatch(admin.split("</head>")[0],/application\/rss\+xml/);
+  });
 
   await t.test("Friends distinguishes an outage, empty directory and published links without forwarding owner cookies", async () => {
     const unavailable = await fetch(`${origin}/friends`);

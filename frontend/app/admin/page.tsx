@@ -4,6 +4,7 @@ import OwnerAccess, { type OwnerSession } from "./owner-access";
 
 export const metadata: Metadata = {
   title: "Owner access",
+  alternates: null,
   robots: { index: false, follow: false },
 };
 

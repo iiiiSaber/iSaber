@@ -88,3 +88,7 @@ body a { text-underline-offset: .25em; }
 :root[data-theme="light"] .article-page .hljs-bullet { color: #79501a; }
 :root[data-theme="light"] .article-page .hljs-addition { color: #246337; background: #e7efdf; }
 :root[data-theme="light"] .article-page .hljs-deletion { color: #a0203d; background: #f8dde1; }
+
+@media (max-width: 480px) {
+  .site-header-actions { gap: 8px; }
+}

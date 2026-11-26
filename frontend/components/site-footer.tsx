@@ -8,6 +8,7 @@ const links = [
   { href: "/archive", label: "Archive" },
   { href: "/friends", label: "Friends" },
   { href: "/about", label: "About" },
+  { href: "/feed.xml", label: "RSS" },
 ];
 
 export default function SiteFooter() {
@@ -23,7 +24,7 @@ export default function SiteFooter() {
       </a>
       <nav aria-label="Footer">
         {links.map(({ href, label }) => (
-          <Link key={href} href={href} aria-current={pathname === href ? "page" : undefined}>{label}</Link>
+          href === "/feed.xml" ? <a key={href} href={href}>{label}</a> : <Link key={href} href={href} aria-current={pathname === href ? "page" : undefined}>{label}</Link>
         ))}
       </nav>
     </footer>

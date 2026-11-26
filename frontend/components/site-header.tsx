@@ -28,6 +28,10 @@ export default function SiteHeader({ owner = false }: { owner?: boolean }) {
         <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true"><path d="M12 .75a11.25 11.25 0 0 0-3.558 21.923c.563.104.77-.244.77-.542 0-.267-.01-1.155-.015-2.095-3.13.68-3.79-1.327-3.79-1.327-.512-1.3-1.25-1.646-1.25-1.646-1.022-.699.077-.685.077-.685 1.13.08 1.725 1.16 1.725 1.16 1.005 1.723 2.637 1.225 3.28.937.102-.728.394-1.225.716-1.506-2.499-.285-5.126-1.25-5.126-5.563 0-1.229.44-2.232 1.16-3.02-.117-.285-.503-1.429.11-2.978 0 0 .945-.302 3.095 1.153A10.79 10.79 0 0 1 12 6.18c.956.004 1.92.13 2.82.38 2.148-1.456 3.092-1.153 3.092-1.153.614 1.55.228 2.693.112 2.977.722.789 1.158 1.792 1.158 3.021 0 4.324-2.632 5.275-5.139 5.554.404.35.765 1.04.765 2.096 0 1.513-.014 2.733-.014 3.104 0 .3.203.65.774.54A11.25 11.25 0 0 0 12 .75Z" /></svg>
         <span className="site-github-label">iSaber on GitHub (opens in a new tab)</span>
       </a>
+      <a className="site-rss" href="/feed.xml" title="RSS feed">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><circle cx="5" cy="19" r="1" fill="currentColor" /><path d="M4 11a9 9 0 0 1 9 9M4 4a16 16 0 0 1 16 16" /></svg>
+        <span className="site-rss-label">RSS feed</span>
+      </a>
       <ThemeToggle />
       <details className="site-mobile-nav" ref={menu} onKeyDown={(event) => {
         if (event.key === "Escape" && menu.current?.open) {
