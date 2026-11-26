@@ -135,6 +135,7 @@ func (s *Service) PublicHandler(assetHandlers ...http.Handler) http.Handler {
 	s.publicLabelRoutes(mux)
 	s.publicCommentRoutes(mux)
 	s.publicFriendRoutes(mux)
+	mux.HandleFunc("GET /api/v1/feed.xml", s.feed)
 	assetHandler := s.AssetHandler()
 	if len(assetHandlers) > 0 {
 		assetHandler = assetHandlers[0]

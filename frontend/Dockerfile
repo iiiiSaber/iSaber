@@ -5,7 +5,7 @@ ENV NEXT_TELEMETRY_DISABLED=1 BACKEND_ORIGIN=http://api:8080
 COPY package.json package-lock.json ./
 RUN npm ci
 COPY . .
-RUN npm run build
+RUN SITE_ORIGIN=https://build.invalid npm run build
 
 FROM docker.io/library/node:24.22.2-bookworm-slim
 LABEL org.opencontainers.image.source="https://github.com/IiCEight/iSaber"

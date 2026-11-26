@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { siteOrigin } from "../lib/site-origin";
 import { cookies } from "next/headers";
 import SiteFooter from "../components/site-footer";
 import SiteHeader from "../components/site-header";
@@ -15,6 +16,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: { default: "iSaber", template: "%s | iSaber" },
     description: "Personal journals, technical articles, and selected work.",
+    alternates: { types: { "application/rss+xml": [{ url: `${siteOrigin()}/feed.xml`, title: "iSaber RSS" }] } },
     ...(access ? { robots: { index: false, follow: false } } : {}),
   };
 }
